@@ -34,92 +34,14 @@ class Whois
     public function info()
     {
         if ($this->isValid()) {
-            $whois_server = $this->servers[$this->TLDs][0];
 
-            // If TLDs have been found
-            if ($whois_server != '') {
+            // if whois server serve replay over HTTP protocol instead of WHOIS protocol
+            $domain = $this->subDomain . '.' . $this->TLDs;
+            $string = shell_exec("whois {$domain}");
+            $string_encoding = mb_detect_encoding($string, "UTF-8, ISO-8859-1, ISO-8859-15", true);
+            $string_utf8 = mb_convert_encoding($string, "UTF-8", $string_encoding);
 
-                // if whois server serve replay over HTTP protocol instead of WHOIS protocol
-                if (preg_match("/^https?:\/\//i", $whois_server)) {
-
-                    // curl session to get whois reposnse
-                    $ch = curl_init();
-                    $url = $whois_server . $this->subDomain . '.' . $this->TLDs;
-                    curl_setopt($ch, CURLOPT_URL, $url);
-                    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 0);
-                    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-                    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-                    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-
-                    $data = curl_exec($ch);
-
-                    if (curl_error($ch)) {
-                        return "Connection error!";
-                    } else {
-                        $string = strip_tags($data);
-                    }
-                    curl_close($ch);
-
-                } else {
-
-                    // Getting whois information
-                    $fp = fsockopen($whois_server, 43);
-                    if (!$fp) {
-                        return "Connection error!";
-                    }
-
-                    $dom = $this->subDomain . '.' . $this->TLDs;
-                    fputs($fp, "$dom\r\n");
-
-                    // Getting string
-                    $string = '';
-
-                    // Checking whois server for .com and .net
-                    if ($this->TLDs == 'com' || $this->TLDs == 'net') {
-                        while (!feof($fp)) {
-                            $line = trim(fgets($fp, 128));
-
-                            $string .= $line;
-
-                            $lineArr = explode (":", $line);
-
-                            if (strtolower($lineArr[0]) == 'whois server') {
-                                $whois_server = trim($lineArr[1]);
-                            }
-                        }
-                        // Getting whois information
-                        $fp = fsockopen($whois_server, 43);
-                        if (!$fp) {
-                            return "Connection error!";
-                        }
-
-                        $dom = $this->subDomain . '.' . $this->TLDs;
-                        fputs($fp, "$dom\r\n");
-
-                        // Getting string
-                        $string = '';
-
-                        while (!feof($fp)) {
-                            $string .= fgets($fp, 128);
-                        }
-
-                        // Checking for other tld's
-                    } else {
-                        while (!feof($fp)) {
-                            $string .= fgets($fp, 128);
-                        }
-                    }
-                    fclose($fp);
-                }
-
-                $string_encoding = mb_detect_encoding($string, "UTF-8, ISO-8859-1, ISO-8859-15", true);
-                $string_utf8 = mb_convert_encoding($string, "UTF-8", $string_encoding);
-
-                return htmlspecialchars($string_utf8, ENT_COMPAT, "UTF-8", true);
-            } else {
-                return "No whois server for this tld in list!";
-            }
+            return htmlspecialchars($string_utf8, ENT_COMPAT, "UTF-8", true);
         } else {
             return "Domainname isn't valid!";
         }
